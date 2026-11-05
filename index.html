@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finalizar Pedido - DISAAR</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- CRONÓMETRO -->
+<div id="timerBar" class="timer-bar">
+  <span class="timer-label">⏳ O carrinho fecha em</span>
+  <span id="timer" class="timer">10:00</span>
+</div>
+
+<main class="card">
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="loja">Loja</button>
+    <button class="tab" data-tab="config" id="tabConfig" hidden>⚙️ Configurar produto</button>
+  </nav>
+
+  <!-- ABA LOJA -->
+  <section id="loja" class="panel active">
+    <h1>Finalizar Pedido</h1>
+
+    <div class="produto">
+      <img id="fotoProduto" src="produto.png" alt="Foto do produto"
+           onerror="this.onerror=null;this.src='https://via.placeholder.com/120?text=Foto'">
+      <div>
+        <strong id="nomeProduto">DISAAR Creme Alívio Muscular 100g</strong>
+        <p id="precoProduto">1.500 MT</p>
+      </div>
+    </div>
+
+    <form id="formPedido">
+      <fieldset id="campos">
+        <label>Nome completo
+          <input type="text" id="nome" required>
+        </label>
+        <label>Número de WhatsApp
+          <input type="tel" id="telefone" placeholder="84 123 4567" required>
+        </label>
+        <label>Cidade / Bairro
+          <input type="text" id="local" placeholder="Matola, Fomento" required>
+        </label>
+        <label>Quantidade
+          <input type="number" id="qtd" value="1" min="1" required>
+        </label>
+        <label>Forma de pagamento
+          <select id="pagamento" required>
+            <option>Pagamento na entrega</option>
+            <option>M-Pesa</option>
+            <option>e-Mola</option>
+            <option>Transferência bancária</option>
+          </select>
+        </label>
+        <label>Observações (opcional)
+          <textarea id="obs" rows="2"></textarea>
+        </label>
+
+        <div class="total">Total: <span id="total">1.500 MT</span></div>
+        <button type="submit" id="btnEnviar">Enviar pedido pelo WhatsApp</button>
+      </fieldset>
+    </form>
+
+    <div id="encerrado" class="encerrado" hidden>
+      🚫 <strong>Vendas encerradas!</strong><br>
+      O tempo acabou e o carrinho foi fechado.
+    </div>
+  </section>
+
+  <!-- ABA CONFIGURAR (abre com index.html#admin) -->
+  <section id="config" class="panel">
+    <h1>Configurar produto</h1>
+
+    <label>Foto do produto
+      <input type="file" id="cfgFoto" accept="image/*">
+    </label>
+    <img id="previewFoto" class="preview" alt="" hidden>
+
+    <label>Nome do produto
+      <input type="text" id="cfgNome">
+    </label>
+    <label>Preço (só números)
+      <input type="number" id="cfgPreco" min="0">
+    </label>
+    <label>Teu WhatsApp (com 258)
+      <input type="tel" id="cfgZap" placeholder="258841234567">
+    </label>
+
+    <button type="button" id="btnSalvar">Guardar</button>
+    <button type="button" id="btnReset" class="sec">Reiniciar cronómetro</button>
+  </section>
+
+</main>
+
+<!-- NOTIFICAÇÕES -->
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script>
+// ===== CONFIGURAÇÃO PADRÃO =====
+const CONFIG = {
+  whatsapp: "258876668082",   // 258 + teu número
+  nome: "DISAAR Creme Alívio Muscular 100g",
+  preco: 1500,
+  minutos: 10
+};
+// ===============================
+
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n).toLocaleString("pt-PT") + " MT";
+
+// Carregar configuração guardada
+let salvo = {};
+try { salvo = JSON.parse(localStorage.getItem("vp_cfg") || "{}"); } catch (_) {}
+Object.assign(CONFIG, salvo);
+let fotoSalva = null;
+try { fotoSalva = localStorage.getItem("vp_foto"); } catch (_) {}
+if (fotoSalva) $("fotoProduto").src = fotoSalva;
+
+function atualizarProduto() {
+  $("nomeProduto").textContent = CONFIG.nome;
+  $("precoProduto").textContent = fmt(CONFIG.preco);
+  $("total").textContent = fmt(CONFIG.preco * (Number($("qtd").value) || 1));
+}
+atualizarProduto();
+$("qtd").addEventListener("input", atualizarProduto);
+
+// ===== ABAS =====
+if (location.hash === "#admin") $("tabConfig").hidden = false;
+document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab, .panel").forEach(e => e.classList.remove("active"));
+  b.classList.add("active");
+  $(b.dataset.tab).classList.add("active");
+}));
+
+// ===== CONFIGURAR =====
+$("cfgNome").value = CONFIG.nome;
+$("cfgPreco").value = CONFIG.preco;
+$("cfgZap").value = CONFIG.whatsapp;
+if (fotoSalva) { $("previewFoto").src = fotoSalva; $("previewFoto").hidden = false; }
+
+$("cfgFoto").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    $("previewFoto").src = r.result;
+    $("previewFoto").hidden = false;
+    $("fotoProduto").src = r.result;
+    try { localStorage.setItem("vp_foto", r.result); }
+    catch (_) { alert("Imagem muito grande para guardar. Usa uma mais pequena."); }
+  };
+  r.readAsDataURL(f);
+});
+
+$("btnSalvar").addEventListener("click", () => {
+  CONFIG.nome = $("cfgNome").value || CONFIG.nome;
+  CONFIG.preco = Number($("cfgPreco").value) || CONFIG.preco;
+  CONFIG.whatsapp = $("cfgZap").value.replace(/\D/g, "") || CONFIG.whatsapp;
+  try {
+    localStorage.setItem("vp_cfg", JSON.stringify({
+      nome: CONFIG.nome, preco: CONFIG.preco, whatsapp: CONFIG.whatsapp
+    }));
+  } catch (_) {}
+  atualizarProduto();
+  alert("Guardado!");
+});
+
+$("btnReset").addEventListener("click", () => location.reload());
+
+// ===== CRONÓMETRO (reinicia sempre que a página abre) =====
+const fim = Date.now() + CONFIG.minutos * 60 * 1000;
+let encerrou = false;
+
+function encerrar() {
+  encerrou = true;
+  $("campos").disabled = true;
+  $("formPedido").hidden = true;
+  $("encerrado").hidden = false;
+  $("timer").textContent = "00:00";
+  $("timerBar").classList.add("fim");
+  $("timerBar").querySelector(".timer-label").textContent = "🚫 VENDAS ENCERRADAS";
+  $("toasts").innerHTML = "";
+}
+
+function tick() {
+  const resta = Math.max(0, Math.floor((fim - Date.now()) / 1000));
+  const m = String(Math.floor(resta / 60)).padStart(2, "0");
+  const s = String(resta % 60).padStart(2, "0");
+  $("timer").textContent = m + ":" + s;
+  $("timerBar").classList.toggle("urgente", resta <= 60 && resta > 0);
+  if (resta <= 0 && !encerrou) encerrar();
+}
+setInterval(tick, 1000);
+tick();
+
+// ===== NOTIFICAÇÕES (nomes fictícios, para a aula) =====
+const nomes = ["Carlos","Marcos","João","Pedro","Tiago","Nelson","Hélder","Valdemar","Edson","Gilberto",
+  "Armando","Délcio","Samuel","Orlando","Jaime","Artur","Fernando","Alberto","Domingos","Eduardo",
+  "Filipe","Ismael","Lourenço","Mário","Narciso","Osvaldo","Rui","Sérgio","Teodoro","Vasco",
+  "Abel","Basílio","Celso","Dércio","Elias","Félix","Hilário","Inácio","Joaquim","Luís"];
+const apelidos = ["Alberto","Tivane","Macamo","Sitoe","Chissano","Mondlane","Cossa","Matavele",
+  "Nhaca","Bila","Machava","Mabunda","Tembe","Langa","Massingue","Chongo","Mucavele","Nhantumbo",
+  "Zandamela","Muianga","Maluleque","Manhiça","Cumbe","Uamusse","Guambe"];
+const cidades = ["Maputo","Matola","Beira","Nampula","Xai-Xai","Inhambane","Chimoio","Quelimane",
+  "Tete","Pemba","Lichinga","Maxixe"];
+const acoes = [
+  "acaba de receber o produto",
+  "acaba de efectuar o pagamento",
+  "acaba de fazer um pedido",
+  "pagou com M-Pesa",
+  "pagou com e-Mola",
+  "confirmou a compra",
+  "acaba de comprar 2 unidades",
+  "acaba de garantir o seu creme"
+];
+
+const usadas = new Set();
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function novaMensagem() {
+  for (let i = 0; i < 200; i++) {
+    const nome = pick(nomes) + " " + pick(apelidos);
+    const acao = pick(acoes);
+    const chave = nome + acao;
+    if (!usadas.has(chave)) {
+      usadas.add(chave);
+      return { nome: nome, acao: acao, cidade: pick(cidades), min: 1 + Math.floor(Math.random() * 9) };
+    }
+  }
+  return null;
+}
+
+function mostrarToast() {
+  if (encerrou) return;
+  const m = novaMensagem();
+  if (!m) return;
+
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.innerHTML =
+    '<img src="' + $("fotoProduto").src + '" alt="">' +
+    '<div><strong>' + m.nome + '</strong> ' + m.acao +
+    '<small>' + m.cidade + ' · há ' + m.min + ' min</small></div>';
+  $("toasts").appendChild(el);
+
+  setTimeout(() => el.classList.add("show"), 50);
+  setTimeout(() => {
+    el.classList.remove("show");
+    setTimeout(() => el.remove(), 400);
+  }, 5000);
+}
+
+function agendar() {
+  if (encerrou) return;
+  setTimeout(() => { mostrarToast(); agendar(); }, 8000 + Math.random() * 6000);
+}
+setTimeout(() => { mostrarToast(); agendar(); }, 2500);
+
+// ===== ENVIAR PARA O WHATSAPP =====
+$("formPedido").addEventListener("submit", e => {
+  e.preventDefault();
+  if (Date.now() >= fim) return encerrar();
+
+  const q = Number($("qtd").value) || 1;
+  const obs = $("obs").value.trim();
+  const msg =
+"🛒 *NOVO PEDIDO*\n\n" +
+"*Produto:* " + CONFIG.nome + "\n" +
+"*Quantidade:* " + q + "\n" +
+"*Total:* " + fmt(CONFIG.preco * q) + "\n\n" +
+"*Cliente:* " + $("nome").value + "\n" +
+"*Contacto:* " + $("telefone").value + "\n" +
+"*Local:* " + $("local").value + "\n" +
+"*Pagamento:* " + $("pagamento").value +
+(obs ? "\n*Obs:* " + obs : "");
+
+  window.location.href = "https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(msg);
+});
+</script>
+</body>
+</html>
